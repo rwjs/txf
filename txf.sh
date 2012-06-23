@@ -18,15 +18,14 @@
 #	is taken as the last argument (no flags). In cases where both STDIN and
 #	an INPUT-FILE are specified, STDIN is preferred.
 #
-#	Plese refer to `show_help`, or run `txf.sh -h` to get usage and a list 
-#	of valid options.
+#	Plese refer to the `$HELP` variable, or run `txf -h` to get usage and a 
+#	list of valid options.
 #
 # AUTHOR
 #	Written by Robert W.J. Stewart.
 #
 # TODO
 #	* Allow vertical alignment types (top, middle, bottom).
-#	* Create more options for newline filter (eg, only filter blanklines)
 #	* Include the margins in column count (currently manually corrected)
 #
 ###############################################################################
@@ -36,17 +35,34 @@ COLS=79
 ROWS=24
 MARGIN=' '
 CUTTEXT="<Truncated>"
-ALIGNMENT="C"
+ALIGNMENT="CENTRE"
+FILTER_NEWLINES="FALSE"
+
+############################### Create Help text ##############################
+
+HELP="
+Usage: [STDIN] | txf.sh [OPTIONS]... [INPUT-FILE]
+	-a <l|c|r>	(Horizontal) alignment type (left, centre, right) (default=<$ALIGNMENT>)
+	-c <integer>	Number of columns (default=<$COLS>)
+	-h		Help - display this text and quit.
+	-m <string>	String to put on the margin (default=<$MARGIN>)
+	-n <t|b|f>	Filter newlines from input (true, blanks, false) (default=<$FILTER_NEWLINES>)
+	-r <integer>	Number of rows (default=$ROWS)
+	-t <string>	Text to display when truncating text (default="$CUTTEXT").
+"
 
 ############################### Define Functions ##############################
 
 function newline_filter
 {
 	# Filter newlines in input
-	if [[ -n "$FILTER_NEWLINES" ]]
+	if [[ "$FILTER_NEWLINES" == "TRUE" ]]
 	then
-		cat - | tr -d '\n'
+		tr -d '\n'
 		echo
+	elif [[ "$FILTER_NEWLINES" == "BLANKS" ]]
+	then
+		sed '/^[\t ]*$/d'
 	else
 		cat -
 	fi
@@ -54,18 +70,18 @@ function newline_filter
 
 function align
 {
-	if [[ "$ALIGNMENT" == 'L' ]]
+	if [[ "$ALIGNMENT" == 'LEFT' ]]
 	then
 		while read -u 0 line
 		do
 			printf '%-'"$COLS"'s\n' "$line"
 		done
-	elif [[ "$ALIGNMENT" == 'C' ]]
+	elif [[ "$ALIGNMENT" == 'CENTRE' ]]
 	then
 		sed -e ':a;s/^.\{1,'"$[ COLS - 2 ]"'\}$/ & /;ta'\
 			-e 's/^.\{'$[ COLS - 1 ]'\}$/& /' #	Left-biased
-#			-e 's/^.\{'$[ COLS - 1 ]'\}$/ &/' #	Right-biased
-	elif [[ "$ALIGNMENT" == 'R' ]]
+	#		-e 's/^.\{'$[ COLS - 1 ]'\}$/ &/' #	Right-biased
+	elif [[ "$ALIGNMENT" == 'RIGHT' ]]
 	then
 		while read -u 0 line
 		do
@@ -98,10 +114,10 @@ function snip
 		fi
 		if [[ CNT -gt 0 ]]
 		then
-			echo $BUF
+			echo "$BUF"
 		fi
 		let CNT+=1
-		BUF=$line
+		BUF="$line"
 	done
 
 	if [[ -z $CUTTEXT || -z "$line" ]]
@@ -122,40 +138,26 @@ function marginare
 	sed 's/^/'"$MARGIN"'/;s/$/'"$FLIPMARGIN/"
 }
 
-function show_help
-{
-	echo
-	echo 'Usage: [STDIN] | txf.sh [OPTIONS]... [INPUT-FILE]'
-	echo
-	echo '	-a <l|c|r>	(Horizontal) alignment type (left, centre, right) (default=centre)'
-	echo '	-c <integer>	Number of (c)olumns (default=79)'
-	echo '	-h		Help - display this text and quit.'
-	echo '	-m <string>	String to put on the margin (default="") '
-	echo '	-n		Filter (delete) newlines from input (default=false)'
-	echo '	-r <integer>	Number of rows (default=24)'
-	echo '	-t <string>	Text to display when truncating text (default="<Truncated>").'
-	echo
-}
-
 ################################# Get Options #################################
 
-while getopts 'a:c:hm:nr:t:' OPTION
+while getopts 'a:c:hm:n:r:t:' OPTION
 do
 	case "$OPTION" in
 		a)
 			ALIGNMENT=$(echo "$OPTARG" | tr 'a-z' 'A-Z')
 			case "$ALIGNMENT" in
-				"LEFT" | "L")
-					ALIGNMENT=L
+				LEFT | L)
+					ALIGNMENT=LEFT
 					;;
-				"CENTER" | "CENTRE" | "C")
-					ALIGNMENT=C
+				CENTER | CENTRE | C)
+					ALIGNMENT=CENTRE
 					;;
-				"RIGHT" | "R")
-					ALIGNMENT=R
+				RIGHT | R)
+					ALIGNMENT=RIGHT
 					;;
 				*)
 					echo "'$OPTARG' is not a valid value for 'ALIGNMENT' (-a)!" >&2
+					echo "$HELP"
 					exit 1
 					;;
 			esac
@@ -164,14 +166,30 @@ do
 			COLS="$OPTARG"
 			;;
 		h)
-			show_help
+			echo "$HELP"
 			exit 0
 			;;
 		m)
 			MARGIN="$OPTARG"
 			;;
 		n)
-			FILTER_NEWLINES="true"
+			FILTER_NEWLINES=$(echo "$OPTARG" | tr 'a-z' 'A-Z')
+			case "$FILTER_NEWLINES" in
+				TRUE | T | YES | Y)
+					FILTER_NEWLINES=TRUE
+					;;
+				BLANKS | BLANK | B)
+					FILTER_NEWLINES=BLANKS
+					;;
+				FALSE | F | NO | N)
+					FILTER_NEWLINES=FALSE
+					;;
+				*)
+					echo "'$OPTARG' is not a valid value for 'FILTER_NEWLINES' (-n)!" >&2
+					echo "$HELP"
+					exit 1
+					;;
+				esac
 			;;
 		r)
 			ROWS="$OPTARG"
@@ -197,8 +215,8 @@ then
 	then
 		FILE=${!#}
 	else
-		echo "STDIN empty, and no file supplied!" >&2
-		show_help
+		echo "STDIN empty, and no (readable) file supplied!" >&2
+		echo "$HELP"
 		exit 1
 	fi
 else
