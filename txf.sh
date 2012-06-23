@@ -6,7 +6,7 @@
 #	txf - TeXt Formatter
 #
 # SYNOPSIS
-#	txf [OPTION]... [INPUT-FILE]...
+#	[STDIN] | txf [OPTIONS]... [INPUT-FILE]
 #
 # DESCRIPTION
 #	txf is for formatting (rearranging and decorating) text from a file, or
@@ -14,24 +14,12 @@
 #	text for display on a  console output - eg, generated messages on TTYs,
 #	MotDs, PXE, etc.
 #
-#	-a [l|c|r]
-#		Alignment type (left, centre, right) (default=centre)
+#	The INPUT-FILE is the file to format if and only if STDIN is empty, and
+#	is taken as the last argument (no flags). In cases where both STDIN and
+#	an INPUT-FILE are specified, STDIN is preferred.
 #
-# 	-c N
-#		Number of columns (default=79)
-#	
-#	-m MARGIN-STRING
-#		String to put on the margin. The reverse of this string is used
-#		for the right margin. Set to null string to disable margins.
-#		
-#	-n
-#		Filter (delete) newlines from input (default=false)
-#
-#	-r ROWS
-#		Number of rows (default=24)
-#		
-#	-t string
-#		Text to display when truncating text (default="<Truncated>").
+#	Plese refer to `show_help`, or run `txf.sh -h` to get usage and a list 
+#	of valid options.
 #
 # AUTHOR
 #	Written by Robert W.J. Stewart.
@@ -96,11 +84,20 @@ function snip
 	#  one line at a time).
 
 	CNT=0
-	while read -u 0 line ; do
-		if [[ CNT -ge $ROWS ]] ; then
+	
+	# while read -u 0 => read from standard input. Handing `read` the 
+	# descriptor (with -u `descriptor`), as opposed to simply piping into 
+	# `while read`, fixes a scoping issue wherein variables set in the 
+	# loop are not available outside it (due to bash's pipe scope rules). 
+	 
+	while read -u 0 line
+	do
+		if [[ CNT -ge $ROWS ]]
+		then
 			break	
 		fi
-		if [[ CNT -gt 0 ]] ; then
+		if [[ CNT -gt 0 ]]
+		then
 			echo $BUF
 		fi
 		let CNT+=1
@@ -118,20 +115,33 @@ function snip
 
 function marginare
 {
-	# Creates and applies margins
+	# Creates and applies margins.
 
 	FLIPMARGIN=$(echo "$MARGIN" | rev)
+
 	sed 's/^/'"$MARGIN"'/;s/$/'"$FLIPMARGIN/"
+}
+
+function show_help
+{
+	echo
+	echo 'Usage: [STDIN] | txf.sh [OPTIONS]... [INPUT-FILE]'
+	echo
+	echo '	-a <l|c|r>	(Horizontal) alignment type (left, centre, right) (default=centre)'
+	echo '	-c <integer>	Number of (c)olumns (default=79)'
+	echo '	-h		Help - display this text and quit.'
+	echo '	-m <string>	String to put on the margin (default="") '
+	echo '	-n		Filter (delete) newlines from input (default=false)'
+	echo '	-r <integer>	Number of rows (default=24)'
+	echo '	-t <string>	Text to display when truncating text (default="<Truncated>").'
+	echo
 }
 
 ################################# Get Options #################################
 
-while getopts 'a:c:m:nr:t:' OPTION
+while getopts 'a:c:hm:nr:t:' OPTION
 do
 	case "$OPTION" in
-		c)
-			COLS="$OPTARG"
-			;;
 		a)
 			ALIGNMENT=$(echo "$OPTARG" | tr 'a-z' 'A-Z')
 			case "$ALIGNMENT" in
@@ -149,6 +159,13 @@ do
 					exit 1
 					;;
 			esac
+			;;
+		c)
+			COLS="$OPTARG"
+			;;
+		h)
+			show_help
+			exit 0
 			;;
 		m)
 			MARGIN="$OPTARG"
@@ -181,6 +198,7 @@ then
 		FILE=${!#}
 	else
 		echo "STDIN empty, and no file supplied!" >&2
+		show_help
 		exit 1
 	fi
 else
