@@ -31,12 +31,12 @@
 ###############################################################################
 ################################# Set defaults ################################
 
-COLS=79
-ROWS=24
-MARGIN=' '
-CUTTEXT="<Truncated>"
 ALIGNMENT="CENTRE"
+COLS=79
+MARGIN=' '
 FILTER_NEWLINES="FALSE"
+ROWS=24
+CUTTEXT="<Truncated>"
 
 ############################### Create Help text ##############################
 
