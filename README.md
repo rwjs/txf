@@ -21,9 +21,3 @@ AUTHOR
 ===
 
 Written by Robert W.J. Stewart.
-
-TODO
-===
-
- * Allow vertical alignment types (top, middle, bottom).
- * Include the margins in column count (currently manually corrected)

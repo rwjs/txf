@@ -25,15 +25,15 @@
 #	Written by Robert W.J. Stewart.
 #
 # TODO
-#	* Allow vertical alignment types (top, middle, bottom).
-#	* Include the margins in column count (currently manually corrected)
+# * Add return codes to h_align
 #
 ###############################################################################
 ################################# Set defaults ################################
 
-ALIGNMENT="CENTRE"
+H_ALIGNMENT="CENTRE"
+V_ALIGNMENT="NONE"
 COLS=79
-MARGIN=' '
+MARGIN='#'
 FILTER_NEWLINES="FALSE"
 ROWS=24
 CUTTEXT="<Truncated>"
@@ -42,13 +42,14 @@ CUTTEXT="<Truncated>"
 
 HELP="
 Usage: [STDIN] | txf.sh [OPTIONS]... [INPUT-FILE]
-	-a <l|c|r>	(Horizontal) alignment type (left, centre, right) (default=<$ALIGNMENT>)
+	-a <n|l|c|r>	Horizontal alignment type (none, left, centre, right) (default=<$H_ALIGNMENT>)
 	-c <integer>	Number of columns (default=<$COLS>)
 	-h		Help - display this text and quit.
 	-m <string>	String to put on the margin (default=<$MARGIN>)
 	-n <t|b|f>	Filter newlines from input (true, blanks, false) (default=<$FILTER_NEWLINES>)
 	-r <integer>	Number of rows (default=$ROWS)
 	-t <string>	Text to display when truncating text (default="$CUTTEXT").
+        -z <n|t|m|b>    Vertical alignment type (none, top, middle, bottom) (default=<$V_ALIGNMENT>)
 "
 
 ############################### Define Functions ##############################
@@ -56,38 +57,104 @@ Usage: [STDIN] | txf.sh [OPTIONS]... [INPUT-FILE]
 function newline_filter
 {
 	# Filter newlines in input
-	if [[ "$FILTER_NEWLINES" == "TRUE" ]]
-	then
-		tr -d '\n'
-		echo
-	elif [[ "$FILTER_NEWLINES" == "BLANKS" ]]
-	then
-		sed '/^[\t ]*$/d'
-	else
-		cat -
-	fi
+        case $FILTER_NEWLINES in
+	        "TRUE" )
+	                tr -d '\n'
+		        echo
+                        return 1
+                        ;;
+	    
+                "BLANKS" )
+		        #sed '/^[\t ]*$/d'
+                        egrep -v '^[\t ]*$'
+                        return $?
+                        ;;
+
+	        "FALSE" )
+		        cat -
+                        return 0
+                        ;;
+	esac
 }
 
-function align
+function h_align
 {
-	if [[ "$ALIGNMENT" == 'LEFT' ]]
-	then
-		while read -u 0 line
-		do
-			printf '%-'"$COLS"'s\n' "$line"
-		done
-	elif [[ "$ALIGNMENT" == 'CENTRE' ]]
-	then
-		sed -e ':a;s/^.\{1,'"$[ COLS - 2 ]"'\}$/ & /;ta'\
+        case $H_ALIGNMENT in
+                'NONE' )
+                        cat -
+                        return 0
+                        ;;
+
+                'LEFT' )
+        		while read -u 0 line
+		        do
+			        printf '%-'"$COLS"'s\n' "$line"
+		        done
+                        ;;
+
+                'CENTRE' )
+                        sed -e ':a;s/^.\{0,'"$[ $COLS - 2 ]"'\}$/ & /;ta'\
 			-e 's/^.\{'$[ COLS - 1 ]'\}$/& /' #	Left-biased
-	#		-e 's/^.\{'$[ COLS - 1 ]'\}$/ &/' #	Right-biased
-	elif [[ "$ALIGNMENT" == 'RIGHT' ]]
-	then
-		while read -u 0 line
-		do
-			printf '%'"$COLS"'s\n' "$line"
-		done
-	fi 
+	        #	-e 's/^.\{'$[ COLS - 1 ]'\}$/ &/' #	Right-biased
+                        ;;
+
+                'RIGHT' )
+		        while read -u 0 line
+		        do
+			        printf '%'"$COLS"'s\n' "$line" 
+		        done
+	                ;; 
+        esac
+}
+
+function v_align
+{
+    RETCODE=0
+    function blank_line
+    {
+            for x in $(seq 1 $1) ; do
+                    echo            # Drop a line
+                    RETCODE=1
+            done
+    }
+
+    case "$V_ALIGNMENT" in
+            'NONE')
+                    cat -
+                    ;;
+
+            'TOP' )
+                    LINE_CNT=0
+                    while read -u 0 line ; do
+                        echo "$line"
+                        let LINE_CNT+=1
+                    done
+                    blank_line "$[ ROWS - LINE_CNT ]"
+                    ;;
+
+            'MIDDLE' )
+                    INPUT=$(cat -)
+                    LINE_CNT=$(wc -l <<< "$INPUT")
+
+                    ######################## Bottom-Bias #######################
+                    #blank_line "$[ $[ ROWS - LINE_CNT + 1 ] / 2 ]"
+                    #echo "$INPUT"
+                    #blank_line "$[ $[ ROWS - LINE_CNT ] / 2 ]"
+
+                    ######################### Top-Bias #########################
+                    blank_line "$[ $[ ROWS - LINE_CNT ] / 2 ]"
+                    echo "$INPUT"
+                    blank_line "$[ $[ ROWS - LINE_CNT + 1 ] / 2 ]"
+                    ;;
+
+            'BOTTOM' )
+                    INPUT=$(cat -)
+                    LINE_CNT=$(wc -l <<< "$INPUT")
+                    blank_line "$[ ROWS - LINE_CNT ]"
+                    echo "$INPUT"
+                    ;;
+    esac
+    return $RETCODE
 }
 
 function snip
@@ -96,8 +163,12 @@ function snip
 	#
 	# If snip() receives fewer than or as many lines as it snips to,
 	#  then deliver the full message. If it recieves more, snip the
-	#  last line. This implementation minimises buffering (only buffers
-	#  one line at a time).
+	#  last line. If it truncates, then display either $CUTTEXT, or if
+        #  $CUTTEXT is empty, display the last line.
+        #
+        # This implementation minimises buffering (buffers 1 line at a time).
+        # 
+        # Returns '1' if text was truncated, returns 0 if not.
 
 	CNT=0
 	
@@ -108,7 +179,7 @@ function snip
 	 
 	while read -u 0 line
 	do
-		if [[ CNT -ge $ROWS ]]
+		if [[ CNT -ge ROWS ]]
 		then
 			break	
 		fi
@@ -120,12 +191,18 @@ function snip
 		BUF="$line"
 	done
 
-	if [[ -z $CUTTEXT || -z "$line" ]]
-	then
-		echo "$BUF"
-	else
-		echo "$CUTTEXT"
-	fi
+        while read -u 0 line
+        do
+                if [[ -z "$CUTTEXT" ]]
+                then
+                        echo "$CUTTEXT"
+                else
+                        echo "$BUF"
+                fi
+                return 1
+        done
+	echo "$BUF"
+        return 0
 }
 
 
@@ -136,27 +213,31 @@ function marginare
 	FLIPMARGIN=$(echo "$MARGIN" | rev)
 
 	sed 's/^/'"$MARGIN"'/;s/$/'"$FLIPMARGIN/"
+        [[ -n $MARGIN ]] && return 1 || return 0
 }
 
 ################################# Get Options #################################
 
-while getopts 'a:c:hm:n:r:t:' OPTION
+while getopts 'a:c:hm:n:r:t:z:' OPTION
 do
 	case "$OPTION" in
 		a)
-			ALIGNMENT=$(echo "$OPTARG" | tr 'a-z' 'A-Z')
-			case "$ALIGNMENT" in
+			H_ALIGNMENT=$(echo "$OPTARG" | tr 'a-z' 'A-Z')
+			case "$H_ALIGNMENT" in
+                                NONE | N)
+                                        H_ALIGNMENT=NONE
+                                        ;;
 				LEFT | L)
-					ALIGNMENT=LEFT
+					H_ALIGNMENT=LEFT
 					;;
 				CENTER | CENTRE | C)
-					ALIGNMENT=CENTRE
+					H_ALIGNMENT=CENTRE
 					;;
 				RIGHT | R)
-					ALIGNMENT=RIGHT
+					H_ALIGNMENT=RIGHT
 					;;
 				*)
-					echo "'$OPTARG' is not a valid value for 'ALIGNMENT' (-a)!" >&2
+					echo "'$OPTARG' is not a valid value for 'H_ALIGNMENT' (-a)!" >&2
 					echo "$HELP"
 					exit 1
 					;;
@@ -168,7 +249,7 @@ do
 		h)
 			echo "$HELP"
 			exit 0
-			;;
+			;; 
 		m)
 			MARGIN="$OPTARG"
 			;;
@@ -197,6 +278,28 @@ do
 		t)
 			CUTTEXT="$OPTARG"
 			;;
+                z)
+                	V_ALIGNMENT=$(echo "$OPTARG" | tr 'a-z' 'A-Z')
+			case "$V_ALIGNMENT" in
+                                NONE | N)
+                                        V_ALIGNMENT=NONE
+                                        ;;
+				TOP | T)
+					V_ALIGNMENT=TOP
+					;;
+				MIDDLE | M)
+					V_ALIGNMENT=MIDDLE
+					;;
+				BOTTOM | B)
+					V_ALIGNMENT=BOTTOM
+					;;
+				*)
+					echo "'$OPTARG' is not a valid value for 'V_ALIGNMENT' (-z)!" >&2
+					echo "$HELP"
+					exit 1
+					;;
+                        esac
+                        ;;
 		--)
 			# POSIX options terminator
 			# http://pubs.opengroup.org/onlinepubs/009604499/basedefs/xbd_chap12.html
@@ -220,9 +323,12 @@ then
 		exit 1
 	fi
 else
-	FILE='-'
+	FILE='-' 
 fi
+
+COLS=$[ COLS - $(wc -c <<< "$MARGIN$MARGIN") + 1] # Correct for margin
 
 ################################## Run Program ################################
 
-cat "$FILE" | newline_filter | fold -s -w "$COLS" - | snip | align | marginare
+cat "$FILE" | newline_filter | fold -s -w "$COLS" - | snip | v_align | h_align | marginare
+exit 0
