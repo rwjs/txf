@@ -26,6 +26,7 @@
 #
 # TODO
 # * Add return codes to h_align
+# * Fix tab rendering issue (convert tabs to spaces)
 #
 ###############################################################################
 ################################# Set defaults ################################
@@ -36,7 +37,7 @@ COLS=79
 MARGIN='#'
 FILTER_NEWLINES="FALSE"
 ROWS=24
-CUTTEXT="<Truncated>"
+CUTTEXT='<< Truncated >>'
 
 ############################### Create Help text ##############################
 
@@ -104,6 +105,7 @@ function h_align
 			        printf '%'"$COLS"'s\n' "$line" 
 		        done
 	                ;; 
+
         esac
 }
 
@@ -181,7 +183,13 @@ function snip
 	do
 		if [[ CNT -ge ROWS ]]
 		then
-			break	
+                        if [[ -n "$CUTTEXT" ]]
+                        then
+                                echo "$CUTTEXT"
+                        else
+                                echo "$BUF"
+                        fi
+                        return 1
 		fi
 		if [[ CNT -gt 0 ]]
 		then
@@ -190,17 +198,6 @@ function snip
 		let CNT+=1
 		BUF="$line"
 	done
-
-        while read -u 0 line
-        do
-                if [[ -z "$CUTTEXT" ]]
-                then
-                        echo "$CUTTEXT"
-                else
-                        echo "$BUF"
-                fi
-                return 1
-        done
 	echo "$BUF"
         return 0
 }
@@ -227,84 +224,107 @@ do
                                 NONE | N)
                                         H_ALIGNMENT=NONE
                                         ;;
+
 				LEFT | L)
 					H_ALIGNMENT=LEFT
 					;;
+
 				CENTER | CENTRE | C)
 					H_ALIGNMENT=CENTRE
 					;;
+
 				RIGHT | R)
 					H_ALIGNMENT=RIGHT
 					;;
+
 				*)
 					echo "'$OPTARG' is not a valid value for 'H_ALIGNMENT' (-a)!" >&2
 					echo "$HELP"
 					exit 1
 					;;
+
 			esac
 			;;
+
 		c)
 			COLS="$OPTARG"
 			;;
+
 		h)
 			echo "$HELP"
 			exit 0
 			;; 
+
 		m)
 			MARGIN="$OPTARG"
 			;;
+
 		n)
 			FILTER_NEWLINES=$(echo "$OPTARG" | tr 'a-z' 'A-Z')
 			case "$FILTER_NEWLINES" in
 				TRUE | T | YES | Y)
 					FILTER_NEWLINES=TRUE
 					;;
+
 				BLANKS | BLANK | B)
 					FILTER_NEWLINES=BLANKS
 					;;
+
 				FALSE | F | NO | N)
 					FILTER_NEWLINES=FALSE
 					;;
+
 				*)
 					echo "'$OPTARG' is not a valid value for 'FILTER_NEWLINES' (-n)!" >&2
 					echo "$HELP"
 					exit 1
 					;;
+
 				esac
 			;;
+
 		r)
 			ROWS="$OPTARG"
 			;;
+
 		t)
 			CUTTEXT="$OPTARG"
 			;;
+
                 z)
                 	V_ALIGNMENT=$(echo "$OPTARG" | tr 'a-z' 'A-Z')
 			case "$V_ALIGNMENT" in
                                 NONE | N)
                                         V_ALIGNMENT=NONE
                                         ;;
+
 				TOP | T)
 					V_ALIGNMENT=TOP
 					;;
+
 				MIDDLE | M)
 					V_ALIGNMENT=MIDDLE
 					;;
+
 				BOTTOM | B)
 					V_ALIGNMENT=BOTTOM
 					;;
+
 				*)
 					echo "'$OPTARG' is not a valid value for 'V_ALIGNMENT' (-z)!" >&2
 					echo "$HELP"
 					exit 1
 					;;
+
                         esac
                         ;;
+
 		--)
 			# POSIX options terminator
 			# http://pubs.opengroup.org/onlinepubs/009604499/basedefs/xbd_chap12.html
 			break
 			;;
+
 	esac
 done
 
