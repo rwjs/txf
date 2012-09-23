@@ -44,12 +44,12 @@ CUTTEXT='<< Truncated >>'
 HELP="
 Usage: [STDIN] | txf.sh [OPTIONS]... [INPUT-FILE]
 	-a <n|l|c|r>	Horizontal alignment type (none, left, centre, right) (default=<$H_ALIGNMENT>)
-	-c <integer>	Number of columns (default=<$COLS>)
+	-c <int|auto>	Number of columns - set to automatic to fill screen (default=<$COLS>)
 	-h		Help - display this text and quit.
 	-m <string>	String to put on the margin (default=<$MARGIN>)
 	-n <t|b|f>	Filter newlines from input (true, blanks, false) (default=<$FILTER_NEWLINES>)
-	-r <integer>	Number of rows (default=$ROWS)
-	-t <string>	Text to display when truncating text (default="$CUTTEXT").
+	-r <int|auto>	Number of rows - set to automatic to fill the screen (default=<$ROWS>)
+	-t <string>	Text to display when truncating text (default=<"$CUTTEXT">).
         -z <n|t|m|b>    Vertical alignment type (none, top, middle, bottom) (default=<$V_ALIGNMENT>)
 "
 
@@ -247,7 +247,20 @@ do
 			;;
 
 		c)
-			COLS="$OPTARG"
+			if [[ $OPTARG =~ ^[0-9]+$ ]]
+			then
+				COLS="$OPTARG"
+			elif $(egrep -io 'a|auto|automatic' <<< "$OPTARG" >/dev/null)
+			then
+				if [[ -t 0 ]] # stty does not work in a pipeline..
+				then
+					COLS="$(stty -a | sed -n 's/^.*columns \([0-9]*\).*$/\1/p')"
+				fi
+			else
+				echo "'$OPTARG' is not a valid value for 'COLS' (-c)!" >&2
+				echo "$HELP"
+				exit 1
+			fi
 			;;
 
 		h)
@@ -280,13 +293,25 @@ do
 					exit 1
 					;;
 
-				esac
+			esac
 			;;
 
 		r)
-			ROWS="$OPTARG"
+			if [[ $OPTARG =~ ^[0-9]+$ ]]
+			then
+				ROWS="$OPTARG"
+			elif $(egrep -io 'a|auto|automatic' <<< "$OPTARG" >/dev/null)
+			then
+				if [[ -t 0 ]] # stty doesn't work in a pipeline..
+				then
+					ROWS="$(stty -a | sed -n 's/^.*rows \([0-9]*\).*$/\1/p')"
+				fi
+			else
+				echo "'$OPTARG' is not a valid value for 'ROWS' (-r)!" >&2
+				echo "$HELP"
+				exit 1
+			fi
 			;;
-
 		t)
 			CUTTEXT="$OPTARG"
 			;;
