@@ -25,5 +25,9 @@ Written by Robert W.J. Stewart.
 TODO
 ===
 
- * Add return codes to h_align()
- * Fix tab rendering issue (convert tabs to spaces)
+ * Add a positioning feature (ie, using `tput cup y x`).
+ * Add colours (ie, using `tput`).
+ * Add text decoration (eg, bold, figlet, etc).
+ * Add horizontal margins.
+ * Add margin types (left/right/top/bottom, topleft/topright/bottomleft/bottomright).
+ * Add a title block block feature.

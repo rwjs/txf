@@ -25,8 +25,8 @@
 #	Written by Robert W.J. Stewart.
 #
 # TODO
-# * Add return codes to h_align
-# * Fix tab rendering issue (convert tabs to spaces)
+#  * Add colour/tput support
+#  * Add title block support
 #
 ###############################################################################
 ################################# Set defaults ################################
@@ -87,26 +87,37 @@ function h_align
                         ;;
 
                 'LEFT' )
+			RETCODE=0
         		while read -u 0 line
 		        do
 			        printf '%-'"$COLS"'s\n' "$line"
+				[[ $COLS -eq ${#line} ]] && continue || RETCODE=1
 		        done
                         ;;
 
                 'CENTRE' )
-                        sed -e ':a;s/^.\{0,'"$[ $COLS - 2 ]"'\}$/ & /;ta'\
-			-e 's/^.\{'$[ COLS - 1 ]'\}$/& /' #	Left-biased
-	        #	-e 's/^.\{'$[ COLS - 1 ]'\}$/ &/' #	Right-biased
+			while read -u 0 line
+			do
+				local LBORD=$[ $[ $COLS - ${#line} ] / 2 ]
+				local RBORD=$[ $[ $COLS - ${#line} ] - $LBORD ]
+				[[ RBORD -eq 0 ]] || RETCODE=1
+
+				printf '%'"$LBORD"'s'
+				echo -n "$line"
+				printf '%'"$RBORD"'s\n'
+			done
                         ;;
 
                 'RIGHT' )
 		        while read -u 0 line
 		        do
 			        printf '%'"$COLS"'s\n' "$line" 
+				[[ $COLS -eq ${#line} ]] && continue || RETCODE=1
 		        done
 	                ;; 
 
         esac
+	return $RETCODE
 }
 
 function v_align
@@ -252,7 +263,7 @@ do
 				COLS="$OPTARG"
 			elif $(egrep -io 'a|auto|automatic' <<< "$OPTARG" >/dev/null)
 			then
-				if [[ -t 0 ]] # stty does not work in a pipeline..
+				if [[ -t 0 ]] # stty does not work in a pipeline (revert to default)..
 				then
 					COLS="$(stty -a | sed -n 's/^.*columns \([0-9]*\).*$/\1/p')"
 				fi
@@ -302,7 +313,7 @@ do
 				ROWS="$OPTARG"
 			elif $(egrep -io 'a|auto|automatic' <<< "$OPTARG" >/dev/null)
 			then
-				if [[ -t 0 ]] # stty doesn't work in a pipeline..
+				if [[ -t 0 ]] # stty doesn't work in a pipeline (revert to default)..
 				then
 					ROWS="$(stty -a | sed -n 's/^.*rows \([0-9]*\).*$/\1/p')"
 				fi
@@ -375,5 +386,6 @@ COLS=$[ COLS - $(wc -c <<< "$MARGIN$MARGIN") + 1] # Correct for margin
 
 ################################## Run Program ################################
 
-cat "$FILE" | newline_filter | fold -s -w "$COLS" - | snip | v_align | h_align | marginare
+#cat "$FILE" | newline_filter | fold -s -w "$COLS" - | snip | v_align | h_align | marginare
+sed 's/\t/    /g' "$FILE" | newline_filter | fold -s -w "$COLS" - | snip | v_align | h_align | marginare
 exit 0
