@@ -270,7 +270,7 @@ function b_border
 
 ################################# Get Options #################################
 
-while getopts 'a:c:hm:n:r:t:z:1:2:3:4:6:7:8:9:' OPTION
+while getopts 'a:c:hm:n:r:t:x:y:z:1:2:3:4:6:7:8:9:' OPTION
 do
 	case "$OPTION" in
 		a)
@@ -356,6 +356,8 @@ do
 				if [[ -t 0 ]] # stty doesn't work in a pipeline (revert to default)..
 				then
 					ROWS="$(stty -a | sed -n 's/^.*rows \([0-9]*\).*$/\1/p')"
+					ROWS=$[ $ROWS - 1]
+					ROWS=$[ $ROWS - $X_OFFSET ]
 				fi
 			else
 				echo "'$OPTARG' is not a valid value for 'ROWS' (-r)!" >&2
@@ -365,6 +367,28 @@ do
 			;;
 		t)
 			CUTTEXT="$OPTARG"
+			;;
+
+		x)
+			if [[ $OPTARG =~ ^[0-9]+$ ]]
+			then
+				X_OFFSET=$OPTARG
+			else
+				echo "'$OPTARG' is not a valid value for X_OFFSET (-x)" >&2
+				echo "$HELP"
+				exit 1
+			fi
+			;;
+
+		y)
+			if [[ $OPTARG =~ ^[0-9]+$ ]]
+			then
+				Y_OFFSET=$OPTARG
+			else
+				echo "'$OPTARG' is not a valid value for Y_OFFSET (-y)" >&2
+				echo "$HELP"
+				exit 1
+			fi
 			;;
 
                 z)
@@ -395,77 +419,15 @@ do
                         esac
                         ;;
 
-		1)
+		1 | 2 | 3 | 4 | 6 | 7 | 8 | 9)
+			OPTS=( zero BL_BORDER BC_BORDER BR_BORDER ML_BORDER five MR_BORDER TL_BORDER TC_BORDER TR_BORDER )
 			if [[ ${#OPTARG} -ge 2 ]]
 			then
-				echo "$OPTARG is too big (must be one or zero characters)!" >&2
+				echo "'$OPTARG' is not a valid value for ${OPTS[$OPTION]} (-$OPTION) - must be one or zero characters!" >&2
 				echo "$HELP" 
 				exit 1
 			fi
-			BL_BORDER="$OPTARG"
-			;;
-		2)
-			if [[ ${#OPTARG} -ge 2 ]]
-			then
-				echo "$OPTARG is too big (must be one or zero characters)!" >&2
-				echo "$HELP"
-				exit 1
-			fi
-			BC_BORDER="$OPTARG"
-			;;
-		3)
-			if [[ ${#OPTARG} -ge 2 ]]
-			then
-				echo "$OPTARG is too big (must be one or zero characters)!" >&2
-				echo "$HELP"
-				exit 1
-			fi
-			BR_BORDER="$OPTARG"
-			;;
-		4)
-			if [[ ${#OPTARG} -ge 2 ]]
-			then
-				echo "$OPTARG is too big (must be one or zero characters)!" >&2
-				echo "$HELP"
-				exit 1
-			fi
-			ML_BORDER="$OPTARG"
-			;;
-		6)
-			if [[ ${#OPTARG} -ge 2 ]]
-			then
-				echo "$OPTARG is too big (must be one or zero characters)!" >&2
-				echo "$HELP"
-				exit 1
-			fi
-			MR_BORDER="$OPTARG"
-			;;
-		7)
-			if [[ ${#OPTARG} -ge 2 ]]
-			then
-				echo "$OPTARG is too big (must be one or zero characters)!" >&2
-				echo "$HELP"
-				exit 1
-			fi
-			TL_BORDER="$OPTARG"
-			;;
-		8)
-			if [[ ${#OPTARG} -ge 2 ]]
-			then
-				echo "$OPTARG is too big (must be one or zero characters)!" >&2
-				echo "$HELP"
-				exit 1
-			fi
-			TC_BORDER="$OPTARG"
-			;;
-		9)
-			if [[ ${#OPTARG} -ge 2 ]]
-			then
-				echo "$OPTARG is too big (must be one or zero characters)!" >&2 
-				echo "$HELP"
-				exit 1
-			fi
-			TR_BORDER="$OPTARG"
+			eval "${OPTS[$OPTION]}=\$OPTARG"
 			;;
 		--)
 			# POSIX options terminator
@@ -494,7 +456,7 @@ else
 fi
 
 COLS=$[ COLS - $[ ${#ML_BORDER} + ${#MR_BORDER} + 1 ] ] # Correct for border
-ROWS=$[ ROWS - 3 ]
+ROWS=$[ ROWS - 2 ]
 
 ################################## Run Program ################################
 
