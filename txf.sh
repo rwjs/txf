@@ -25,8 +25,11 @@
 #	Written by Robert W.J. Stewart.
 #
 # TODO
-#  * Add colour/tput support
-#  * Add title block support
+# * Add a positioning feature (ie, using `tput cup y x`).
+# * Add colours (ie, using `tput`).
+# * Add text decoration (eg, bold, figlet, etc).
+# * Add a title block block feature.
+# * Put CUTTEXT in bottom border
 #
 ###############################################################################
 ################################# Set defaults ################################
@@ -34,23 +37,49 @@
 H_ALIGNMENT="CENTRE"
 V_ALIGNMENT="NONE"
 COLS=79
-MARGIN='#'
 FILTER_NEWLINES="FALSE"
 ROWS=24
 CUTTEXT='<< Truncated >>'
+
+X_OFFSET=0
+Y_OFFSET=0
+
+BL_BORDER="#"
+BC_BORDER="#"
+BR_BORDER="#"
+ML_BORDER="#"
+MR_BORDER="#"
+TL_BORDER="#"
+TC_BORDER="#"
+TR_BORDER="#"
 
 ############################### Create Help text ##############################
 
 HELP="
 Usage: [STDIN] | txf.sh [OPTIONS]... [INPUT-FILE]
 	-a <n|l|c|r>	Horizontal alignment type (none, left, centre, right) (default=<$H_ALIGNMENT>)
+	-b <colour>	Border background colour (default=NONE)
+	-B <colour>	Border foreground colour (default=NONE)
 	-c <int|auto>	Number of columns - set to automatic to fill screen (default=<$COLS>)
 	-h		Help - display this text and quit.
-	-m <string>	String to put on the margin (default=<$MARGIN>)
+	-i <colour>	Inside background colour (default=NONE)
+	-I <colour>	Inside foreground colour (default=NONE)
 	-n <t|b|f>	Filter newlines from input (true, blanks, false) (default=<$FILTER_NEWLINES>)
+	-o <colour>	Outside background colour (default=NONE)
+	-O <colour>	Outside foreground colour (default=NONE)
 	-r <int|auto>	Number of rows - set to automatic to fill the screen (default=<$ROWS>)
 	-t <string>	Text to display when truncating text (default=<"$CUTTEXT">).
+	-x <integer>	Horizontal offset
+	-y <integer>	Vertical offset
         -z <n|t|m|b>    Vertical alignment type (none, top, middle, bottom) (default=<$V_ALIGNMENT>)
+	-1 <chr>	Bottom-left border character (default=<$BL_BORDER>)
+	-2 <chr>	Bottom-centre border character (default=<$BC_BORDER>)
+	-3 <chr>	Bottom-right border character(default=<$BR_BORDER>)
+	-4 <chr>	Middle-left border character (default=<$ML_BORDER>)
+	-6 <chr>	Middle-right border character (default=<$MR_BORDER>)
+	-7 <chr>	Top-left border character (default=<$TL_BORDER>)
+	-8 <chr>	Top-centre border character (default=<$TC_BORDER>)
+	-9 <chr>	Top-right border character (default=<$TR_BORDER>)
 "
 
 ############################### Define Functions ##############################
@@ -181,7 +210,7 @@ function snip
         #
         # This implementation minimises buffering (buffers 1 line at a time).
         # 
-        # Returns '1' if text was truncated, returns 0 if not.
+        # Returns '1' if text was truncated, returns '0' if not.
 
 	CNT=0
 	
@@ -214,19 +243,34 @@ function snip
 }
 
 
-function marginare
+function h_border
 {
-	# Creates and applies margins.
+	# Creates and applies Left/right border
+	#
+	# Returns '0' if border was applied, '1' if not.
 
-	FLIPMARGIN=$(echo "$MARGIN" | rev)
+	sed 's/^/'"$ML_BORDER"'/;s/$/'"$MR_BORDER/"
+        [[ -n "$ML_BORDER$MR_BORDER" ]] 
+	return $?
+}
 
-	sed 's/^/'"$MARGIN"'/;s/$/'"$FLIPMARGIN/"
-        [[ -n $MARGIN ]] && return 1 || return 0
+function t_border
+{
+	printf "$TL_BORDER"
+	printf '%*s' "$COLS" | tr ' ' "$TC_BORDER"
+	printf "$TR_BORDER\n"
+}
+
+function b_border
+{
+	printf "$BL_BORDER"
+	printf '%*s' "$COLS" | tr ' ' "$BC_BORDER"
+	printf "$BR_BORDER\n"
 }
 
 ################################# Get Options #################################
 
-while getopts 'a:c:hm:n:r:t:z:' OPTION
+while getopts 'a:c:hm:n:r:t:z:1:2:3:4:6:7:8:9:' OPTION
 do
 	case "$OPTION" in
 		a)
@@ -278,10 +322,6 @@ do
 			echo "$HELP"
 			exit 0
 			;; 
-
-		m)
-			MARGIN="$OPTARG"
-			;;
 
 		n)
 			FILTER_NEWLINES=$(echo "$OPTARG" | tr 'a-z' 'A-Z')
@@ -355,12 +395,83 @@ do
                         esac
                         ;;
 
+		1)
+			if [[ ${#OPTARG} -ge 2 ]]
+			then
+				echo "$OPTARG is too big (must be one or zero characters)!" >&2
+				echo "$HELP" 
+				exit 1
+			fi
+			BL_BORDER="$OPTARG"
+			;;
+		2)
+			if [[ ${#OPTARG} -ge 2 ]]
+			then
+				echo "$OPTARG is too big (must be one or zero characters)!" >&2
+				echo "$HELP"
+				exit 1
+			fi
+			BC_BORDER="$OPTARG"
+			;;
+		3)
+			if [[ ${#OPTARG} -ge 2 ]]
+			then
+				echo "$OPTARG is too big (must be one or zero characters)!" >&2
+				echo "$HELP"
+				exit 1
+			fi
+			BR_BORDER="$OPTARG"
+			;;
+		4)
+			if [[ ${#OPTARG} -ge 2 ]]
+			then
+				echo "$OPTARG is too big (must be one or zero characters)!" >&2
+				echo "$HELP"
+				exit 1
+			fi
+			ML_BORDER="$OPTARG"
+			;;
+		6)
+			if [[ ${#OPTARG} -ge 2 ]]
+			then
+				echo "$OPTARG is too big (must be one or zero characters)!" >&2
+				echo "$HELP"
+				exit 1
+			fi
+			MR_BORDER="$OPTARG"
+			;;
+		7)
+			if [[ ${#OPTARG} -ge 2 ]]
+			then
+				echo "$OPTARG is too big (must be one or zero characters)!" >&2
+				echo "$HELP"
+				exit 1
+			fi
+			TL_BORDER="$OPTARG"
+			;;
+		8)
+			if [[ ${#OPTARG} -ge 2 ]]
+			then
+				echo "$OPTARG is too big (must be one or zero characters)!" >&2
+				echo "$HELP"
+				exit 1
+			fi
+			TC_BORDER="$OPTARG"
+			;;
+		9)
+			if [[ ${#OPTARG} -ge 2 ]]
+			then
+				echo "$OPTARG is too big (must be one or zero characters)!" >&2 
+				echo "$HELP"
+				exit 1
+			fi
+			TR_BORDER="$OPTARG"
+			;;
 		--)
 			# POSIX options terminator
 			# http://pubs.opengroup.org/onlinepubs/009604499/basedefs/xbd_chap12.html
 			break
 			;;
-
 	esac
 done
 
@@ -382,10 +493,12 @@ else
 	FILE='-' 
 fi
 
-COLS=$[ COLS - $(wc -c <<< "$MARGIN$MARGIN") + 1] # Correct for margin
+COLS=$[ COLS - $[ ${#ML_BORDER} + ${#MR_BORDER} + 1 ] ] # Correct for border
+ROWS=$[ ROWS - 3 ]
 
 ################################## Run Program ################################
 
-#cat "$FILE" | newline_filter | fold -s -w "$COLS" - | snip | v_align | h_align | marginare
-sed 's/\t/    /g' "$FILE" | newline_filter | fold -s -w "$COLS" - | snip | v_align | h_align | marginare
+t_border
+sed 's/\t/    /g' "$FILE" | newline_filter | fold -s -w "$COLS" - | snip | v_align | h_align | h_border
+b_border
 exit 0

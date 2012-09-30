@@ -28,6 +28,4 @@ TODO
  * Add a positioning feature (ie, using `tput cup y x`).
  * Add colours (ie, using `tput`).
  * Add text decoration (eg, bold, figlet, etc).
- * Add horizontal margins.
- * Add margin types (left/right/top/bottom, topleft/topright/bottomleft/bottomright).
  * Add a title block block feature.
