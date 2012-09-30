@@ -68,7 +68,8 @@ Usage: [STDIN] | txf.sh [OPTIONS]... [INPUT-FILE]
 	-o <colour>	Outside background colour (default=NONE)
 	-O <colour>	Outside foreground colour (default=NONE)
 	-r <int|auto>	Number of rows - set to automatic to fill the screen (default=<$ROWS>)
-	-t <string>	Text to display when truncating text (default=<"$CUTTEXT">).
+	-tT <string>	Text to display when truncating text (default=<"$CUTTEXT">). 
+				Use 'T' to force it into the border.
 	-x <integer>	Horizontal offset
 	-y <integer>	Vertical offset
         -z <n|t|m|b>    Vertical alignment type (none, top, middle, bottom) (default=<$V_ALIGNMENT>)
@@ -199,6 +200,62 @@ function v_align
     return $RETCODE
 }
 
+
+function h_border
+{
+	# Creates and applies Left/right border
+	#
+	# Returns '0' if border was applied, '1' if not.
+
+	sed 's/^/'"$ML_BORDER"'/;s/$/'"$MR_BORDER/"
+        [[ -n "$ML_BORDER$MR_BORDER" ]] 
+	return $?
+}
+
+function t_border
+{
+	if [[ -z "$TL_BORDER$TC_BORDER$TR_BORDER" ]]
+	then
+		return 1
+	fi
+	[[ -n "$TL_BORDER" ]] && printf "$TL_BORDER" || printf ' '
+	if [[ -n "$TC_BORDER" ]]
+	then
+		printf '%*s' "$COLS" | tr ' ' "$TC_BORDER"
+	else
+		printf '%*s' "$COLS"
+	fi
+	printf "$TR_BORDER\n"
+	return 0
+}
+
+function b_border
+{
+	if [[ -z "$BL_BORDER$BC_BORDER$BR_BORDER" ]]
+	then
+		cat - 
+		return 1
+	fi
+
+	[[ -n "$BL_BORDER" ]] && printf "$BL_BORDER" || printf ' '
+	if [[ -n "$BC_BORDER" ]]
+	then
+		INBUF=$(cat -)
+
+		local LBORD=$[ $[ $COLS - ${#INBUF} ] / 2  ]
+		local RBORD=$[ $[ $COLS - ${#INBUF} ] - $LBORD ]
+
+		printf '%'"$LBORD"'s' | tr ' ' "$BC_BORDER"
+		echo "$INBUF" | tr -d '\n'
+		printf '%'"$RBORD"'s' | tr ' ' "$BC_BORDER"
+	else
+		printf '%*s' "$COLS"
+	fi
+	echo "$BR_BORDER"
+	return 0
+}
+
+
 function snip
 {
 	# Truncate 'long' messages.
@@ -225,9 +282,14 @@ function snip
 		then
                         if [[ -n "$CUTTEXT" ]]
                         then
-                                echo "$CUTTEXT"
-                        else
-                                echo "$BUF"
+				if [[ $CUT_IN_BORDER ]]
+				then
+					echo "$BUF"
+                                	echo "$CUTTEXT" | b_border
+	                        else
+					echo "$CUTTEXT" | h_align | h_border
+					printf '' | b_border
+				fi
                         fi
                         return 1
 		fi
@@ -242,35 +304,9 @@ function snip
         return 0
 }
 
-
-function h_border
-{
-	# Creates and applies Left/right border
-	#
-	# Returns '0' if border was applied, '1' if not.
-
-	sed 's/^/'"$ML_BORDER"'/;s/$/'"$MR_BORDER/"
-        [[ -n "$ML_BORDER$MR_BORDER" ]] 
-	return $?
-}
-
-function t_border
-{
-	printf "$TL_BORDER"
-	printf '%*s' "$COLS" | tr ' ' "$TC_BORDER"
-	printf "$TR_BORDER\n"
-}
-
-function b_border
-{
-	printf "$BL_BORDER"
-	printf '%*s' "$COLS" | tr ' ' "$BC_BORDER"
-	printf "$BR_BORDER\n"
-}
-
 ################################# Get Options #################################
 
-while getopts 'a:c:hm:n:r:t:x:y:z:1:2:3:4:6:7:8:9:' OPTION
+while getopts 'a:c:hm:n:r:t:T:x:y:z:1:2:3:4:6:7:8:9:' OPTION
 do
 	case "$OPTION" in
 		a)
@@ -365,8 +401,9 @@ do
 				exit 1
 			fi
 			;;
-		t)
+		t | T)
 			CUTTEXT="$OPTARG"
+			[[ "$OPTION" == 'T' ]] && CUT_IN_BORDER='true' || CUT_IN_BORDER=''
 			;;
 
 		x)
@@ -420,7 +457,7 @@ do
                         ;;
 
 		1 | 2 | 3 | 4 | 6 | 7 | 8 | 9)
-			OPTS=( zero BL_BORDER BC_BORDER BR_BORDER ML_BORDER five MR_BORDER TL_BORDER TC_BORDER TR_BORDER )
+			declare -a OPTS=( zero BL_BORDER BC_BORDER BR_BORDER ML_BORDER five MR_BORDER TL_BORDER TC_BORDER TR_BORDER )
 			if [[ ${#OPTARG} -ge 2 ]]
 			then
 				echo "'$OPTARG' is not a valid value for ${OPTS[$OPTION]} (-$OPTION) - must be one or zero characters!" >&2
@@ -460,7 +497,6 @@ ROWS=$[ ROWS - 2 ]
 
 ################################## Run Program ################################
 
-t_border
-sed 's/\t/    /g' "$FILE" | newline_filter | fold -s -w "$COLS" - | snip | v_align | h_align | h_border
-b_border
+t_border || COLS=$[ $COLS + 1 ]
+sed 's/\t/    /g' "$FILE" | newline_filter | fold -s -w "$COLS" - | v_align | h_align | h_border | snip
 exit 0
