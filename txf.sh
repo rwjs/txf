@@ -29,7 +29,6 @@
 # * Add colours (ie, using `tput`).
 # * Add text decoration (eg, bold, figlet, etc).
 # * Add a title block block feature.
-# * Put CUTTEXT in bottom border
 #
 ###############################################################################
 ################################# Set defaults ################################
@@ -229,7 +228,7 @@ function t_border
 	return 0
 }
 
-function b_border
+function v_border
 {
 	if [[ -z "$BL_BORDER$BC_BORDER$BR_BORDER" ]]
 	then
@@ -285,10 +284,12 @@ function snip
 				if [[ $CUT_IN_BORDER ]]
 				then
 					echo "$BUF"
-                                	echo "$CUTTEXT" | b_border
+                                	echo "$CUTTEXT" | v_border
 	                        else
 					echo "$CUTTEXT" | h_align | h_border
-					printf '' | b_border
+					# Hack: Used printf '' so that v_border
+					#	 wouldn't inherit stdin
+					printf '' | v_border
 				fi
                         fi
                         return 1
