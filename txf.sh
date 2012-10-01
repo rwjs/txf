@@ -228,7 +228,7 @@ function t_border
 	return 0
 }
 
-function v_border
+function b_border
 {
 	if [[ -z "$BL_BORDER$BC_BORDER$BR_BORDER" ]]
 	then
@@ -284,12 +284,12 @@ function snip
 				if [[ $CUT_IN_BORDER ]]
 				then
 					echo "$BUF"
-                                	echo "$CUTTEXT" | v_border
+                                	echo "$CUTTEXT" | b_border
 	                        else
 					echo "$CUTTEXT" | h_align | h_border
-					# Hack: Used printf '' so that v_border
+					# Hack: Used printf '' so that b_border
 					#	 wouldn't inherit stdin
-					printf '' | v_border
+					printf '' | b_border
 				fi
                         fi
                         return 1
