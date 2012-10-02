@@ -52,6 +52,11 @@ TL_BORDER="#"
 TC_BORDER="#"
 TR_BORDER="#"
 
+BORDER_BG=''
+BORDER_FG=''
+INSIDE_BG=''
+INSIDE_FG=''
+
 ############################### Create Help text ##############################
 
 HELP="
@@ -64,8 +69,6 @@ Usage: [STDIN] | txf.sh [OPTIONS]... [INPUT-FILE]
 	-i <colour>	Inside background colour (default=NONE)
 	-I <colour>	Inside foreground colour (default=NONE)
 	-n <t|b|f>	Filter newlines from input (true, blanks, false) (default=<$FILTER_NEWLINES>)
-	-o <colour>	Outside background colour (default=NONE)
-	-O <colour>	Outside foreground colour (default=NONE)
 	-r <int|auto>	Number of rows - set to automatic to fill the screen (default=<$ROWS>)
 	-tT <string>	Text to display when truncating text (default=<"$CUTTEXT">). 
 				Use 'T' to force it into the border.
@@ -307,7 +310,7 @@ function snip
 
 ################################# Get Options #################################
 
-while getopts 'a:c:hm:n:r:t:T:x:y:z:1:2:3:4:6:7:8:9:' OPTION
+while getopts 'a:b:B:c:hi:I:m:n:r:t:T:x:y:z:1:2:3:4:6:7:8:9:' OPTION
 do
 	case "$OPTION" in
 		a)
@@ -338,6 +341,35 @@ do
 			esac
 			;;
 
+		b | B | i | I)
+			declare -a COLOURS=( black red green yellow blue magenta cyan white )
+
+			[[ "$OPTION" == 'B' ]] && VARIABLE='BORDER_FG'
+                        [[ "$OPTION" == 'b' ]] && VARIABLE='BORDER_BG'
+                        [[ "$OPTION" == 'I' ]] && VARIABLE='INSIDE_FG'
+                        [[ "$OPTION" == 'i' ]] && VARIABLE='INSIDE_BG'
+
+			if [[ "$OPTARG" =~ ^[0-9]+$ && "$OPTARG" -ge 0 && "$OPTARG" -lt ${#COLOURS[@]} ]]
+			then
+				COLIND=$OPTARG
+			else
+				for (( i=0; i<${#COLOURS[@]} ; i++ ))
+				do
+					$(echo ${COLOURS[$i]} | grep -i "$OPTARG" >/dev/null) && COLIND=$i
+                                        
+				done
+			fi
+			if [[ -n "$COLIND" ]]
+			then
+				eval "$VARIABLE=\$COLIND"
+			else
+                                echo "'$OPTARG' is not a valid value for"\
+                                "'$VARIABLE' (-$OPTION) (must be"\
+                                "$(sed 's/ [^,]/,&/g;s/,\([^,]*\)$/, or\1/'<<< ${COLOURS[@]}),"\
+                                "or a number between 0 and $[${#COLOURS[@]}-1])!" >&2
+                                exit 1
+			fi
+			;;
 		c)
 			if [[ $OPTARG =~ ^[0-9]+$ ]]
 			then
@@ -500,4 +532,5 @@ ROWS=$[ ROWS - 2 ]
 
 t_border || COLS=$[ $COLS + 1 ]
 sed 's/\t/    /g' "$FILE" | newline_filter | fold -s -w "$COLS" - | v_align | h_align | h_border | snip
+
 exit 0
