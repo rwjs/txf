@@ -26,6 +26,13 @@ TODO
 ===
 
  * Add a positioning feature (ie, using `tput cup y x`).
- * Add colours (ie, using `tput`).
  * Add text decoration (eg, bold, figlet, etc).
  * Add a title block block feature.
+
+LICENCE
+===
+
+MIT Licence
+<http://opensource.org/licenses/MIT>
+
+

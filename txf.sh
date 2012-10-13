@@ -257,7 +257,6 @@ function b_border
 	return 0
 }
 
-
 function snip
 {
 	# Truncate 'long' messages.
@@ -356,12 +355,12 @@ do
 				for (( i=0; i<${#COLOURS[@]} ; i++ ))
 				do
 					$(echo ${COLOURS[$i]} | grep -i "$OPTARG" >/dev/null) && COLIND=$i
-                                        
 				done
 			fi
 			if [[ -n "$COLIND" ]]
 			then
 				eval "$VARIABLE=\$COLIND"
+				unset COLIND
 			else
                                 echo "'$OPTARG' is not a valid value for"\
                                 "'$VARIABLE' (-$OPTION) (must be"\
@@ -527,6 +526,22 @@ fi
 
 COLS=$[ COLS - $[ ${#ML_BORDER} + ${#MR_BORDER} + 1 ] ] # Correct for border
 ROWS=$[ ROWS - 2 ]
+
+[[ -n "$BORDER_BG" ]] && COLSTR=$(echo -en '\E[4'"$BORDER_FG"'m')
+[[ -n "$BORDER_FG" ]] && COLSTR=$(echo -en "$COLSTR"'\E[3'"$BORDER_BG"'m')
+BL_BORDER="$COLSTR$BL_BORDER"
+ML_BORDER="$COLSTR$ML_BORDER"
+MR_BORDER="$COLSTR$MR_BORDER"
+TL_BORDER="$COLSTR$TL_BORDER"
+[[ -n "$BORDER_BG$BORDER_FG" ]] && ML_BORDER=$(echo -en "$ML_BORDER"'\E[0;m')
+[[ -n "$BORDER_BG$BORDER_FG" ]] && MR_BORDER=$(echo -en "$MR_BORDER"'\E[0;m')
+[[ -n "$BORDER_BG$BORDER_FG" ]] && BR_BORDER=$(echo -en "$BR_BORDER"'\E[0;m')
+[[ -n "$BORDER_BG$BORDER_FG" ]] && TR_BORDER=$(echo -en "$BR_BORDER"'\E[0;m')
+
+[[ -n "$INSIDE_BG" ]] && COLSTR=$(echo -en '\E[4'"$INSIDE_BG"'m')
+[[ -n "$INSIDE_FG" ]] && COLSTR=$(echo -en "$COLSTR"'\E[3'"$INSIDE_FG"'m')
+ML_BORDER="$ML_BORDER$COLSTR"
+[[ -n "$INSIDE_BG$INSIDE_FG" ]] && MR_BORDER=$(echo -en '\E[0;m'"$MR_BORDER")
 
 ################################## Run Program ################################
 
